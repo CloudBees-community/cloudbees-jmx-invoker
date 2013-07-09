@@ -17,6 +17,8 @@ package com.cloudbees.jmx;
 
 import com.cloudbees.util.Strings2;
 import com.cloudbees.util.nio.Files2;
+import com.sun.tools.attach.AgentInitializationException;
+import com.sun.tools.attach.AgentLoadException;
 import com.sun.tools.attach.VirtualMachine;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -259,7 +261,7 @@ public class JmxInvoker {
         try {
             vm = VirtualMachine.attach(pid);
         } catch (Exception e) {
-            throw new IllegalStateException("Exception attaching vm with PID '" + pid + "'", e);
+            throw new IllegalStateException("Exception attaching VM with PID '" + pid + "'", e);
         }
 
 
@@ -275,6 +277,19 @@ public class JmxInvoker {
 
         String connectorAddress =
                 vm.getAgentProperties().getProperty("com.sun.management.jmxremote.localConnectorAddress");
+        if (connectorAddress == null) {
+            String agent = vm.getSystemProperties().getProperty(
+                    "java.home") + File.separator + "lib" + File.separator +
+                    "management-agent.jar";
+            try {
+                vm.loadAgent(agent);
+            } catch (Exception e) {
+                throw new IllegalStateException("Exception loading agent " + agent);
+            }
+            connectorAddress = vm.getAgentProperties().getProperty(
+                    "com.sun.management.jmxremote.localConnectorAddress");
+        }
+
         if (connectorAddress == null) {
             throw new IllegalStateException("Could not attach to pid: " + pid + ". No connector available");
         }
