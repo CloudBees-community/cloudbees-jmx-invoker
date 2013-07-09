@@ -15,6 +15,7 @@
  */
 package com.cloudbees.jmx;
 
+import com.cloudbees.util.Strings2;
 import com.cloudbees.util.nio.Files2;
 import com.sun.tools.attach.VirtualMachine;
 import org.kohsuke.args4j.CmdLineException;
@@ -49,29 +50,38 @@ public class JmxInvoker {
         CmdLineParser parser = new CmdLineParser(arguments);
         try {
             parser.parseArgument(args);
-            if (arguments.pid == null && arguments.pidFile == null) {
-                throw new CmdLineException(parser, "--pid and --pid-file can NOT be both null");
-            } else if (arguments.pid != null && arguments.pidFile != null) {
-                throw new CmdLineException(parser, "--pid and --pid-file can NOT be both defined");
+            arguments.cmdLineParser = parser;
+            if (Strings2.isEmpty(arguments.pid) && arguments.pidFile == null) {
+                throw new CmdLineException(parser, "Options --pid and --pid-file can NOT be both null");
+            } else if (!Strings2.isEmpty(arguments.pid) && arguments.pidFile != null) {
+                throw new CmdLineException(parser, "Options --pid and --pid-file can NOT be both defined");
+            } else if (
+                    (arguments.attribute == null || arguments.attribute.length == 0) &&
+                            (arguments.operation == null || arguments.operation.length == 0)) {
+                throw new CmdLineException(parser, "Option --attribute or --operation must be defined");
+            } else if (
+                    (arguments.attribute != null && arguments.attribute.length > 0) &&
+                            (arguments.operation != null || arguments.operation.length > 0)) {
+                throw new CmdLineException(parser, "Options --attribute and --operation can NOT be both defined");
             }
+
+
+            String logLevel;
+            if (arguments.superVerbose) {
+                logLevel = "TRACE";
+            } else if (arguments.verbose) {
+                logLevel = "DEBUG";
+            } else {
+                logLevel = "INFO";
+            }
+            System.setProperty(SimpleLogger.DEFAULT_LOG_LEVEL_KEY, logLevel);
+
+            Map<ObjectName, Object> results = new JmxInvoker().process(arguments);
         } catch (CmdLineException e) {
-            System.err.println(e.getMessage());
+            System.err.println("INVALID INVOCATION: " + e.getMessage());
             parser.printUsage(System.err);
             return;
         }
-
-
-        String logLevel;
-        if (arguments.superVerbose) {
-            logLevel = "TRACE";
-        } else if (arguments.verbose) {
-            logLevel = "DEBUG";
-        } else {
-            logLevel = "INFO";
-        }
-        System.setProperty(SimpleLogger.DEFAULT_LOG_LEVEL_KEY, logLevel);
-
-        Map<ObjectName, Object> results = new JmxInvoker().process(arguments);
     }
 
     public Map<ObjectName, Object> process(JmxInvokerArguments arguments) throws IOException {
@@ -107,7 +117,7 @@ public class JmxInvoker {
                 } else if (attributeName != null) {
                     result = invokeAttribute(mbeanServer, objectName, attributeName, attributeValue);
                 } else {
-                    throw new IllegalStateException("NOT OPERATION OR ATTRIBUTE DEFINED");
+                    throw new CmdLineException("NOT OPERATION OR ATTRIBUTE DEFINED");
                 }
             } catch (Exception e) {
                 StringWriter sw = new StringWriter();
@@ -305,6 +315,7 @@ public class JmxInvoker {
         public boolean superVerbose;
         @Option(name = "-h", aliases = "--help", usage = "print help")
         public boolean showHelp;
+        public CmdLineParser cmdLineParser;
 
 
     }
