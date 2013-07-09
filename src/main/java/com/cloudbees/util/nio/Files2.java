@@ -15,18 +15,30 @@
  */
 package com.cloudbees.util.nio;
 
+import javax.annotation.Nonnull;
 import java.io.*;
 import java.nio.charset.Charset;
 
 /**
+ * File Utils.
+ *
  * @author <a href="mailto:cleclerc@cloudbees.com">Cyrille Le Clerc</a>
  */
 public class Files2 {
-    public static String readFile(File file, String charset) throws IOException {
+
+    /**
+     * Read the given file and return it as a String
+     */
+    @Nonnull
+    public static String readFile(@Nonnull File file, @Nonnull String charset) throws IOException {
         return readFile(file, Charset.forName(charset));
     }
 
-    public static String readFile(File file, Charset charset) throws IOException {
+    /**
+     * Read the given file and return it as a String
+     */
+    @Nonnull
+    public static String readFile(@Nonnull File file, @Nonnull Charset charset) throws IOException {
         if (file == null)
             throw new NullPointerException("Given 'file' can not be null");
         if (!file.exists())
@@ -41,7 +53,10 @@ public class Files2 {
 
     }
 
-    public static void copy(InputStream in, OutputStream out) throws IOException {
+    /**
+     * Copy the given inputstream to the given outputstream.
+     */
+    public static void copy(@Nonnull InputStream in, @Nonnull OutputStream out) throws IOException {
         byte[] buffer = new byte[512];
         int length;
         while ((length = in.read(buffer)) >= 0) {

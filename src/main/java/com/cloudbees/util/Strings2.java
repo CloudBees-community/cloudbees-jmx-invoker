@@ -16,6 +16,7 @@
 package com.cloudbees.util;
 
 /**
+ * String utils
  * @author <a href="mailto:cleclerc@cloudbees.com">Cyrille Le Clerc</a>
  */
 public class Strings2 {
@@ -25,8 +26,6 @@ public class Strings2 {
 
     /**
      * Return <code>true</code> if the given <code>str</code> is <code>null</code> or empty.
-     * @param str
-     * @return
      */
     public static boolean isEmpty(String str) {
         if (str == null || str.length() == 0) {

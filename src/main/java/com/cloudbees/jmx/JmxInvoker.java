@@ -29,6 +29,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.impl.SimpleLogger;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.management.*;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
@@ -40,6 +42,10 @@ import java.io.StringWriter;
 import java.util.*;
 
 /**
+ * Invoke arbitrary JMX operation or attribute connecting to the target local JVM thanks to the
+ * <a href="http://docs.oracle.com/javase/6/docs/jdk/api/attach/spec/index.html">Attach API</a>
+ * (see <a href="https://blogs.oracle.com/CoreJavaTechTips/entry/the_attach_api">The Attach API</a>).
+ *
  * @author <a href="mailto:cleclerc@cloudbees.com">Cyrille Le Clerc</a>
  */
 public class JmxInvoker {
@@ -151,7 +157,16 @@ public class JmxInvoker {
 
     }
 
-    public Object invokeAttribute(MBeanServerConnection mbeanServer, ObjectName objectName, String attributeName, String attributeValue) throws IOException, JMException {
+    /**
+     * @param mbeanServer
+     * @param objectName
+     * @param attributeName
+     * @param attributeValue if <code>null</code>, this is a read access.
+     * @return if this is a read access, the returned value (may be null); if it is a write access, return <code>void.class</code>.
+     * @throws IOException
+     * @throws JMException
+     */
+    public Object invokeAttribute(@Nonnull MBeanServerConnection mbeanServer, @Nonnull ObjectName objectName, @Nonnull String attributeName, @Nullable String attributeValue) throws IOException, JMException {
         MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
         MBeanAttributeInfo attributeInfo = null;
         for (MBeanAttributeInfo mai : mbeanInfo.getAttributes()) {
@@ -184,7 +199,8 @@ public class JmxInvoker {
         }
     }
 
-    public Object invokeOperation(MBeanServerConnection mBeanServer, ObjectName on, String operationName, String... arguments) throws JMException, IOException {
+    @Nullable
+    public Object invokeOperation(@Nonnull MBeanServerConnection mBeanServer, @Nonnull ObjectName on, @Nonnull String operationName, @Nonnull String... arguments) throws JMException, IOException {
 
         logger.debug("invokeOperation({},{}, {}, {})...", on, operationName, Arrays.asList(arguments));
         MBeanInfo mbeanInfo = mBeanServer.getMBeanInfo(on);
@@ -223,7 +239,13 @@ public class JmxInvoker {
         return result;
     }
 
-    protected Object[] convertValues(String[] arguments, List<String> signature) {
+    /**
+     * Convert given values
+     *
+     * @return
+     */
+    @Nonnull
+    protected Object[] convertValues(@Nonnull String[] arguments, @Nonnull List<String> signature) {
         if (arguments.length != signature.size())
             throw new IllegalArgumentException("arguments and signature must have the same length (" + arguments.length + " vs. " + signature.size() + "");
 
@@ -234,7 +256,18 @@ public class JmxInvoker {
         return results;
     }
 
-    private Object convertValue(String value, String targetType) {
+    /**
+     * Convert the given <code>value</code> to the given <code>targetType</code>.
+     * </p>
+     * Special value '{@value #NULL_VALUE}' is seen as <code>null</code>.
+     *
+     * @param value
+     * @param targetType The value {@link Class#getName()} such as <code>java.lang.String</code> if <code>null</code>, target type is assumed to be String.
+     * @return the converted value
+     * @see javax.management.MBeanParameterInfo#getType()
+     */
+    @Nullable
+    private Object convertValue(@Nullable String value, @Nullable String targetType) {
         if (NULL_VALUE.equals(value) || null == value) {
             return null;
         } else if (String.class.getName().equals(targetType)) {
@@ -251,7 +284,8 @@ public class JmxInvoker {
         }
     }
 
-    protected MBeanServerConnection connectToMbeanServer(String pid) throws IOException {
+    @Nonnull
+    protected MBeanServerConnection connectToMbeanServer(@Nonnull String pid) throws IOException {
         VirtualMachine vm;
         try {
             Integer.parseInt(pid);
@@ -301,6 +335,7 @@ public class JmxInvoker {
     }
 
     static {
+        // configure Log4j SimpleLogger
         if (!System.getProperties().contains(SimpleLogger.DATE_TIME_FORMAT_KEY))
             System.setProperty(SimpleLogger.DATE_TIME_FORMAT_KEY, "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         if (!System.getProperties().contains(SimpleLogger.LOG_FILE_KEY))
