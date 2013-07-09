@@ -52,7 +52,7 @@
     <scm>
         <connection>scm:git:git://github.com/CloudBees-community/cloudbees-jmx-invoker.git</connection>
         <developerConnection>scm:git:git@github.com:CloudBees-community/cloudbees-jmx-invoker.git</developerConnection>
-        <url>http://github.com/cloudbees/cloudbees-jmx-invoker/tree/master/</url>
+        <url>https://github.com/CloudBees-community/cloudbees-jmx-invoker</url>
     </scm>
     <dependencies>
         <dependency>
