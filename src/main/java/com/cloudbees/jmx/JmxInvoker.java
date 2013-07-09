@@ -61,7 +61,7 @@ public class JmxInvoker {
                 throw new CmdLineException(parser, "Option --attribute or --operation must be defined");
             } else if (
                     (arguments.attribute != null && arguments.attribute.length > 0) &&
-                            (arguments.operation != null || arguments.operation.length > 0)) {
+                            (arguments.operation != null && arguments.operation.length > 0)) {
                 throw new CmdLineException(parser, "Options --attribute and --operation can NOT be both defined");
             }
 
