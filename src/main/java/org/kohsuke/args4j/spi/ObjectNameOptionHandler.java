@@ -23,6 +23,8 @@ import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
 /**
+ * {@link OptionHandler} for JMX {@link ObjectName}.
+ *
  * @author <a href="mailto:cleclerc@cloudbees.com">Cyrille Le Clerc</a>
  */
 public class ObjectNameOptionHandler extends OptionHandler<ObjectName> {

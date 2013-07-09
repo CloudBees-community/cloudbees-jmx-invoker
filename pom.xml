@@ -29,7 +29,7 @@
 
     <name>cloudbees-jmx-invoker</name>
     <description>CloudBees JMX Invoker tools</description>
-    <url>https://github.com/cloudbees/cloudbees-jmx-invoker</url>
+    <url>https://github.com/CloudBees-community/cloudbees-jmx-invoker</url>
     <inceptionYear>2013</inceptionYear>
     <licenses>
         <license>
@@ -50,8 +50,8 @@
     </prerequisites>
 
     <scm>
-        <connection>scm:git:git://github.com/cloudbees/cloudbees-jmx-invoker.git</connection>
-        <developerConnection>scm:git:git@github.com:cloudbees/cloudbees-jmx-invoker.git</developerConnection>
+        <connection>scm:git:git://github.com/CloudBees-community/cloudbees-jmx-invoker.git</connection>
+        <developerConnection>scm:git:git@github.com:CloudBees-community/cloudbees-jmx-invoker.git</developerConnection>
         <url>http://github.com/cloudbees/cloudbees-jmx-invoker/tree/master/</url>
     </scm>
     <dependencies>
@@ -69,6 +69,12 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>1.7.5</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <version>2.0.1</version>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>com.sun</groupId>
