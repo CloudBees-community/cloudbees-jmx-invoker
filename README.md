@@ -1,6 +1,11 @@
 # CloudBees JMX Invoker
 
-Small script to invoke a JMX operation or access a JMX attribute of a Java process running locally.
+Small script to perform the following JMX operations on a Java process running locally:
+
+* list mbeans
+* describe a mbean
+* invoke a JMX operation
+* read or write a JMX attribute
 
 
 ## JMX Invoker parameters
@@ -11,7 +16,9 @@ Small script to invoke a JMX operation or access a JMX attribute of a Java proce
  -attr (--attribute) ATTRIBUTE_NAME     : attribute to read or to update. If a
  [VAL]                                  : VAL is passed, then it is a write
                                           action, otherwise, it is a read action
+ -d (--describe-mbeans)                 : describe mbeans
  -h (--help)                            : print help
+ -l (--list-mbeans)                     : list mbeans
  -on (--object-name) OBJECT_NAME        : ObjectName of the MBean(s) to invoke,
                                           can contain wildcards (*). If more
                                           than one MBean match, all MBeans are
@@ -26,13 +33,37 @@ Small script to invoke a JMX operation or access a JMX attribute of a Java proce
 
 ## Samples
 
+### List MBeans
 
-### Read JMX attribute:
+```
+java \
+   -cp $JAVA_HOME/lib/tools.jar:target/cloudbees-jmx-invoker-1.0.1-jar-with-dependencies.jar \
+   com.cloudbees.jmx.JmxInvoker \
+   -vvv -p 11172 \
+   -on Catalina:type=DataSource,class=javax.sql.DataSource,* \
+   -l
+
+```
+
+### Describe MBean
+
+```
+java \
+   -cp $JAVA_HOME/lib/tools.jar:target/cloudbees-jmx-invoker-1.0.1-jar-with-dependencies.jar \
+   com.cloudbees.jmx.JmxInvoker \
+   -vvv -p 11172 \
+   -on java.util.logging:type=Logging \
+   -d
+
+```
+
+
+### Read JMX attribute: DataSource numActive
 
 
 ```
 java \
-   -cp $JAVA_HOME/lib/tools.jar:target/cloudbees-jmx-invoker-1.0.0-SNAPSHOT-jar-with-dependencies.jar \
+   -cp $JAVA_HOME/lib/tools.jar:target/cloudbees-jmx-invoker-1.0.1-jar-with-dependencies.jar \
    com.cloudbees.jmx.JmxInvoker \
    -vvv -p 11172 \
    -on Catalina:type=DataSource,class=javax.sql.DataSource,name="jdbc/petclinic" \
@@ -44,7 +75,7 @@ java \
 ### Invoke JMX operation : get LogBack log level
 ```
 java \
-   -cp $JAVA_HOME/lib/tools.jar:target/cloudbees-jmx-invoker-1.0.0-SNAPSHOT-jar-with-dependencies.jar \
+   -cp $JAVA_HOME/lib/tools.jar:target/cloudbees-jmx-invoker-1.0.1-jar-with-dependencies.jar \
    com.cloudbees.jmx.JmxInvoker \
    -v -p 11172 \
    -on "ch.qos.logback.classic:Name=cocktail-app,Type=ch.qos.logback.classic.jmx.JMXConfigurator" \
@@ -55,7 +86,7 @@ java \
 
 ```
 java \
-   -cp $JAVA_HOME/lib/tools.jar:target/cloudbees-jmx-invoker-1.0.0-SNAPSHOT-jar-with-dependencies.jar \
+   -cp $JAVA_HOME/lib/tools.jar:target/cloudbees-jmx-invoker-1.0.1-jar-with-dependencies.jar \
    com.cloudbees.jmx.JmxInvoker \
    -v -p 11172 \
    -on "ch.qos.logback.classic:Name=cocktail-app,Type=ch.qos.logback.classic.jmx.JMXConfigurator" \

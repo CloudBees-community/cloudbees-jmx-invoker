@@ -28,6 +28,7 @@ import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.util.Map;
 
 /**
  * @author <a href="mailto:cleclerc@cloudbees.com">Cyrille Le Clerc</a>
@@ -124,6 +125,43 @@ public class JmxInvokerTest {
             }
         };
         jmxInvoker.process(arguments);
+    }
+
+    @Test
+    public void testMainListMbeans() throws Exception {
+        String[] args = {"-v", "-p", "12345", "-on", mockSimpleBeanObjectName.getDomain() + ":*", "-l",};
+        JmxInvoker.JmxInvokerArguments arguments = new JmxInvoker.JmxInvokerArguments();
+        CmdLineParser parser = new CmdLineParser(arguments);
+        parser.parseArgument(args);
+
+        JmxInvoker jmxInvoker = new JmxInvoker() {
+            @Override
+            protected MBeanServerConnection connectToMbeanServer(String pid) throws IOException {
+                return mbeanServer;
+            }
+        };
+        Map<ObjectName, Object> results = jmxInvoker.process(arguments);
+        Assert.assertEquals(2, results.size());
+        System.out.println(results);
+    }
+
+    @Test
+    public void testMainDescribeMbean() throws Exception {
+        String[] args = {"-v", "-p", "12345", "-on", mockSimpleBeanObjectName.toString(), "-d",};
+        JmxInvoker.JmxInvokerArguments arguments = new JmxInvoker.JmxInvokerArguments();
+        CmdLineParser parser = new CmdLineParser(arguments);
+        parser.parseArgument(args);
+
+        JmxInvoker jmxInvoker = new JmxInvoker() {
+            @Override
+            protected MBeanServerConnection connectToMbeanServer(String pid) throws IOException {
+                return mbeanServer;
+            }
+        };
+        Map<ObjectName, Object> results = jmxInvoker.process(arguments);
+        Assert.assertEquals(1, results.size());
+
+        System.out.println(results);
     }
 
     @Test

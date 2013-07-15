@@ -17,8 +17,6 @@ package com.cloudbees.jmx;
 
 import com.cloudbees.util.Strings2;
 import com.cloudbees.util.nio.Files2;
-import com.sun.tools.attach.AgentInitializationException;
-import com.sun.tools.attach.AgentLoadException;
 import com.sun.tools.attach.VirtualMachine;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -65,8 +63,9 @@ public class JmxInvoker {
                 throw new CmdLineException(parser, "Options --pid and --pid-file can NOT be both defined");
             } else if (
                     (arguments.attribute == null || arguments.attribute.length == 0) &&
-                            (arguments.operation == null || arguments.operation.length == 0)) {
-                throw new CmdLineException(parser, "Option --attribute or --operation must be defined");
+                            (arguments.operation == null || arguments.operation.length == 0) &&
+                            arguments.listMbeans == false && arguments.describeMbeans == false) {
+                throw new CmdLineException(parser, "Option --attribute or --operation or --list-mbeans or --describe-mbeans must be defined");
             } else if (
                     (arguments.attribute != null && arguments.attribute.length > 0) &&
                             (arguments.operation != null && arguments.operation.length > 0)) {
@@ -124,8 +123,12 @@ public class JmxInvoker {
                     result = invokeOperation(mbeanServer, objectName, operationName, operationArguments);
                 } else if (attributeName != null) {
                     result = invokeAttribute(mbeanServer, objectName, attributeName, attributeValue);
+                } else if (arguments.describeMbeans) {
+                    result = describeMbean(mbeanServer, objectName);
+                } else if (arguments.listMbeans) {
+                    result = objectName;
                 } else {
-                    throw new CmdLineException("NOT OPERATION OR ATTRIBUTE DEFINED");
+                    throw new CmdLineException(arguments.cmdLineParser, "NO SEARCH_MBEANS OR OPERATION  OR ATTRIBUTE DEFINED");
                 }
             } catch (Exception e) {
                 StringWriter sw = new StringWriter();
@@ -139,14 +142,14 @@ public class JmxInvoker {
 
         logger.info("INVOCATION RESULT");
         logger.info("#################");
-        logger.info("pid: {}", pid);
-        logger.info("object-name: {}", on);
+        logger.info("JVM pid: {}", pid);
+        logger.info("Searched object-name: {}", on);
         if (operationName != null) {
-            logger.info("invoke operation {}{}", operationName, Arrays.asList(operationArguments));
+            logger.info("Invoke operation {}{}", operationName, Arrays.asList(operationArguments));
         } else if (attributeValue == null) {
-            logger.info("get attribute {}", attributeName);
+            logger.info("Get attribute {}", attributeName);
         } else {
-            logger.info("set attribute {}: {}", attributeName, attributeValue);
+            logger.info("Set attribute {}: {}", attributeName, attributeValue);
         }
         for (Map.Entry<ObjectName, Object> entry : results.entrySet()) {
             logger.info("{}", entry.getKey());
@@ -155,6 +158,26 @@ public class JmxInvoker {
 
         return results;
 
+    }
+
+    protected Object describeMbean(@Nonnull MBeanServerConnection mbeanServer, @Nonnull ObjectName objectName) throws IntrospectionException, ReflectionException, InstanceNotFoundException, IOException {
+        MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
+        StringWriter sw = new StringWriter();
+        PrintWriter out = new PrintWriter(sw);
+        out.println(objectName.toString());
+        out.println("# OPERATIONS");
+        out.println();
+        for (MBeanOperationInfo opInfo : mbeanInfo.getOperations()) {
+            out.println("* " + opInfo.toString());
+        }
+        out.println();
+        out.println("# ATTRIBUTES");
+        out.println();
+        for (MBeanAttributeInfo attrInfo : mbeanInfo.getAttributes()) {
+            out.println("* " + attrInfo.toString());
+        }
+
+        return sw.getBuffer().toString();
     }
 
     /**
@@ -366,7 +389,10 @@ public class JmxInvoker {
         @Option(name = "-h", aliases = "--help", usage = "print help")
         public boolean showHelp;
         public CmdLineParser cmdLineParser;
-
+        @Option(name = "-l", aliases = "--list-mbeans", required = false, usage = "list mbeans")
+        public boolean listMbeans;
+        @Option(name = "-d", aliases = "--describe-mbeans", required = false, usage = "describe mbeans")
+        public boolean describeMbeans;
 
     }
 }
