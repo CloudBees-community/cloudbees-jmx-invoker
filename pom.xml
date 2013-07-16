@@ -24,7 +24,7 @@
 
     <artifactId>cloudbees-jmx-invoker</artifactId>
     <packaging>jar</packaging>
-    <version>1.0.1</version>
+    <version>1.0.2-SNAPSHOT</version>
 
     <name>cloudbees-jmx-invoker</name>
     <description>CloudBees JMX Invoker tools</description>
