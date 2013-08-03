@@ -107,8 +107,8 @@ public class JmxInvokerTest {
     public void testGetStringAttribute() throws Exception {
         JmxInvoker jmxInvoker = new JmxInvoker();
         mockSimpleJmxBean.setZeAttribute("aValueToRead");
-        Object actual = jmxInvoker.invokeAttribute(mbeanServer, mockSimpleBeanObjectName, "ZeAttribute", null);
-        Assert.assertEquals(actual, "aValueToRead");
+        JmxInvoker.Result actual = jmxInvoker.invokeAttribute(mbeanServer, mockSimpleBeanObjectName, "ZeAttribute", null);
+        Assert.assertEquals(actual.value, "aValueToRead");
     }
 
     @Test
@@ -140,7 +140,7 @@ public class JmxInvokerTest {
                 return mbeanServer;
             }
         };
-        Map<ObjectName, Object> results = jmxInvoker.process(arguments);
+        Map<ObjectName, JmxInvoker.Result> results = jmxInvoker.process(arguments);
         Assert.assertEquals(2, results.size());
         System.out.println(results);
     }
@@ -158,7 +158,7 @@ public class JmxInvokerTest {
                 return mbeanServer;
             }
         };
-        Map<ObjectName, Object> results = jmxInvoker.process(arguments);
+        Map<ObjectName, JmxInvoker.Result> results = jmxInvoker.process(arguments);
         Assert.assertEquals(1, results.size());
 
         System.out.println(results);

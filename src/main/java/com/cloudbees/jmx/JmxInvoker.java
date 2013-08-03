@@ -52,6 +52,8 @@ public class JmxInvoker {
 
     public static void main(String[] args) throws Exception {
 
+        long timeBeforeInMillis = System.currentTimeMillis();
+
         JmxInvokerArguments arguments = new JmxInvokerArguments();
         CmdLineParser parser = new CmdLineParser(arguments);
         try {
@@ -79,19 +81,38 @@ public class JmxInvoker {
             } else if (arguments.verbose) {
                 logLevel = "DEBUG";
             } else {
-                logLevel = "INFO";
+                logLevel = "WARN";
             }
             System.setProperty(SimpleLogger.DEFAULT_LOG_LEVEL_KEY, logLevel);
 
-            Map<ObjectName, Object> results = new JmxInvoker().process(arguments);
+            Map<ObjectName, Result> results = new JmxInvoker().process(arguments);
+            for (Map.Entry<ObjectName, Result> entry : results.entrySet()) {
+                System.out.println(entry.getValue().description);
+            }
         } catch (CmdLineException e) {
             System.err.println("INVALID INVOCATION: " + e.getMessage());
+            System.err.println("Arguments: " + Strings2.join(args, " "));
+            System.err.println("Usage:");
             parser.printUsage(System.err);
-            return;
+            throw e;
+        } catch (Exception e) {
+            System.err.println("INVALID INVOCATION: " + e.getMessage());
+            System.err.println("Arguments: " + Strings2.join(args, " "));
+            e.printStackTrace();
+            throw e;
+        } finally {
+            if(arguments.verbose ||arguments.superVerbose) {
+                System.out.println("Duration: " + (System.currentTimeMillis() - timeBeforeInMillis) + "ms");
+            }
         }
     }
 
-    public Map<ObjectName, Object> process(JmxInvokerArguments arguments) throws IOException {
+    private static void setSystemPropertyIfNotDefined(String systemPropertyName, String value) {
+        if (!System.getProperties().contains(systemPropertyName))
+            System.setProperty(systemPropertyName, value);
+    }
+
+    public Map<ObjectName, Result> process(JmxInvokerArguments arguments) throws IOException {
 
         String pid = (arguments.pid == null) ? Files2.readFile(arguments.pidFile, "US-ASCII") : arguments.pid;
         pid = pid.replace("\n", "").trim();
@@ -109,7 +130,7 @@ public class JmxInvoker {
 
         MBeanServerConnection mbeanServer = connectToMbeanServer(pid);
 
-        Map<ObjectName, Object> results = new HashMap<ObjectName, Object>();
+        Map<ObjectName, Result> results = new TreeMap<ObjectName, Result>();
 
         Set<ObjectName> objectNames = mbeanServer.queryNames(on, null);
         if (objectNames.isEmpty()) {
@@ -117,7 +138,7 @@ public class JmxInvoker {
         }
 
         for (ObjectName objectName : objectNames) {
-            Object result;
+            Result result;
             try {
                 if (operationName != null) {
                     result = invokeOperation(mbeanServer, objectName, operationName, operationArguments);
@@ -126,14 +147,15 @@ public class JmxInvoker {
                 } else if (arguments.describeMbeans) {
                     result = describeMbean(mbeanServer, objectName);
                 } else if (arguments.listMbeans) {
-                    result = objectName;
+                    result = new Result(objectName, objectName.toString(), objectName.toString());
                 } else {
-                    throw new CmdLineException(arguments.cmdLineParser, "NO SEARCH_MBEANS OR OPERATION  OR ATTRIBUTE DEFINED");
+                    throw new CmdLineException(arguments.cmdLineParser, "NO SEARCH_MBEANS OR OPERATION OR ATTRIBUTE DEFINED");
                 }
             } catch (Exception e) {
                 StringWriter sw = new StringWriter();
                 e.printStackTrace(new PrintWriter(sw));
-                result = "## EXCEPTION ##\n" + sw.toString();
+                String msg = "## EXCEPTION ##\n" + sw.toString();
+                result = new Result(objectName, msg, msg);
             }
 
             results.put(objectName, result);
@@ -151,7 +173,7 @@ public class JmxInvoker {
         } else {
             logger.info("Set attribute {}: {}", attributeName, attributeValue);
         }
-        for (Map.Entry<ObjectName, Object> entry : results.entrySet()) {
+        for (Map.Entry<ObjectName, Result> entry : results.entrySet()) {
             logger.info("{}", entry.getKey());
             logger.info("\t{}", entry.getValue());
         }
@@ -160,24 +182,53 @@ public class JmxInvoker {
 
     }
 
-    protected Object describeMbean(@Nonnull MBeanServerConnection mbeanServer, @Nonnull ObjectName objectName) throws IntrospectionException, ReflectionException, InstanceNotFoundException, IOException {
+    protected Result describeMbean(@Nonnull MBeanServerConnection mbeanServer, @Nonnull ObjectName objectName) throws IntrospectionException, ReflectionException, InstanceNotFoundException, IOException {
         MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
         StringWriter sw = new StringWriter();
         PrintWriter out = new PrintWriter(sw);
+        out.println("# MBEAN");
         out.println(objectName.toString());
-        out.println("# OPERATIONS");
         out.println();
-        for (MBeanOperationInfo opInfo : mbeanInfo.getOperations()) {
-            out.println("* " + opInfo.toString());
+        out.println("## OPERATIONS");
+        List<MBeanOperationInfo> operations = Arrays.asList(mbeanInfo.getOperations());
+        Collections.sort(operations, new Comparator<MBeanOperationInfo>() {
+            @Override
+            public int compare(MBeanOperationInfo o1, MBeanOperationInfo o2) {
+                return o1.getName().compareTo(o1.getName());
+            }
+        });
+
+        for (MBeanOperationInfo opInfo : operations) {
+            out.print("* " + opInfo.getName() + "(");
+            MBeanParameterInfo[] signature = opInfo.getSignature();
+            for (int i = 0; i < signature.length; i++) {
+                MBeanParameterInfo paramInfo = signature[i];
+                out.print(paramInfo.getType() + " " + paramInfo.getName());
+                if (i < signature.length - 1) {
+                    out.print(", ");
+                }
+            }
+
+            out.print("):" + opInfo.getReturnType() /* + " - " + opInfo.getDescription() */);
+            out.println();
         }
         out.println();
-        out.println("# ATTRIBUTES");
-        out.println();
-        for (MBeanAttributeInfo attrInfo : mbeanInfo.getAttributes()) {
-            out.println("* " + attrInfo.toString());
+        out.println("## ATTRIBUTES");
+        List<MBeanAttributeInfo> attributes = Arrays.asList(mbeanInfo.getAttributes());
+        Collections.sort(attributes, new Comparator<MBeanAttributeInfo>() {
+            @Override
+            public int compare(MBeanAttributeInfo o1, MBeanAttributeInfo o2) {
+                return o1.getName().compareTo(o2.getName());
+            }
+        });
+        for (MBeanAttributeInfo attrInfo : attributes) {
+            out.println("* " + attrInfo.getName() + ": " + attrInfo.getType() + " - " +
+                    (attrInfo.isReadable() ? "r" : "") + (attrInfo.isWritable() ? "w" : "") /* + " - " +
+                    attrInfo.getDescription() */);
         }
 
-        return sw.getBuffer().toString();
+        String description = sw.getBuffer().toString();
+        return new Result(objectName, description, description);
     }
 
     /**
@@ -189,7 +240,7 @@ public class JmxInvoker {
      * @throws IOException
      * @throws JMException
      */
-    public Object invokeAttribute(@Nonnull MBeanServerConnection mbeanServer, @Nonnull ObjectName objectName, @Nonnull String attributeName, @Nullable String attributeValue) throws IOException, JMException {
+    public Result invokeAttribute(@Nonnull MBeanServerConnection mbeanServer, @Nonnull ObjectName objectName, @Nonnull String attributeName, @Nullable String attributeValue) throws IOException, JMException {
         MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
         MBeanAttributeInfo attributeInfo = null;
         for (MBeanAttributeInfo mai : mbeanInfo.getAttributes()) {
@@ -202,11 +253,15 @@ public class JmxInvoker {
             throw new IllegalArgumentException("No attribute '" + attributeName + "' found on '" + objectName + "'. Existing attributes: " + Arrays.asList(mbeanInfo.getAttributes()));
         }
 
+        String description;
+        Object resultValue;
+
         if (attributeValue == null) {
             if (attributeInfo.isReadable()) {
                 Object attribute = mbeanServer.getAttribute(objectName, attributeName);
                 logger.info("get attribute value {}:{}:{}", objectName, attributeName, attribute);
-                return attribute;
+                resultValue = attribute;
+                description = "Get attribute value " + objectName + ":" + attributeName + ": " + resultValue;
             } else {
                 throw new IllegalArgumentException("Attribute '" + attributeName + "' is not readable on '" + objectName + "': " + attributeInfo);
             }
@@ -215,15 +270,19 @@ public class JmxInvoker {
                 Object value = convertValue(attributeValue, attributeInfo.getType());
                 mbeanServer.setAttribute(objectName, new Attribute(attributeName, value));
                 logger.info("set attribute value {}:{}:{}", objectName, attributeName, value);
-                return void.class;
+
+                description = "Set attribute value " + objectName + ":" + attributeName + ": " + value;
+                resultValue = void.class;
             } else {
                 throw new IllegalArgumentException("Attribute '" + attributeName + "' is not writable on '" + objectName + "': " + attributeInfo);
             }
         }
+
+        return new Result(objectName, resultValue, description);
     }
 
     @Nullable
-    public Object invokeOperation(@Nonnull MBeanServerConnection mBeanServer, @Nonnull ObjectName on, @Nonnull String operationName, @Nonnull String... arguments) throws JMException, IOException {
+    public Result invokeOperation(@Nonnull MBeanServerConnection mBeanServer, @Nonnull ObjectName on, @Nonnull String operationName, @Nonnull String... arguments) throws JMException, IOException {
 
         logger.debug("invokeOperation({},{}, {}, {})...", on, operationName, Arrays.asList(arguments));
         MBeanInfo mbeanInfo = mBeanServer.getMBeanInfo(on);
@@ -232,15 +291,16 @@ public class JmxInvoker {
         for (MBeanOperationInfo mbeanOperationInfo : mbeanInfo.getOperations()) {
             if (mbeanOperationInfo.getName().equals(operationName) && mbeanOperationInfo.getSignature().length == arguments.length) {
                 candidates.add(mbeanOperationInfo);
-                logger.debug("select matching operation {}", mbeanOperationInfo);
+                logger.debug("Select matching operation {}", mbeanOperationInfo);
             } else {
                 logger.trace("Ignore non matching operation {}", mbeanOperationInfo);
             }
         }
         if (candidates.isEmpty()) {
-            throw new IllegalArgumentException("Operation '" + operationName + "" + Arrays.asList(arguments) + "' NOT found on " + on);
+            throw new IllegalArgumentException("Operation '" + operationName + "(" + Strings2.join(arguments, ", ") + ")' NOT found on " + on);
         } else if (candidates.size() > 1) {
-            throw new IllegalArgumentException("More than 1 (" + candidates.size() + ", operation '" + operationName + "' found on '" + on + "': " + candidates);
+            throw new IllegalArgumentException("More than 1 (" + candidates.size() + ") operation '" + operationName + "(" + Strings2.join(arguments, ", ") +
+                    ")' found on '" + on + "': " + candidates);
         }
         MBeanOperationInfo beanOperationInfo = candidates.get(0);
 
@@ -257,9 +317,14 @@ public class JmxInvoker {
 
         Object result = mBeanServer.invoke(on, operationName, convertedArguments, signature.toArray(new String[0]));
 
+        if ("void".equals(beanOperationInfo.getReturnType()) && result == null) {
+            result = "void";
+        }
+
         logger.info("Invoke {}:{}({}): {}", on, operationName, Arrays.asList(convertedArguments), result);
 
-        return result;
+        String description = "Invoke operation " + on + ":" + operationName + "(" + Strings2.join(convertedArguments, ", ") + "): " + Strings2.toString(result);
+        return new Result(on, result, description);
     }
 
     /**
@@ -358,13 +423,12 @@ public class JmxInvoker {
     }
 
     static {
-        // configure Log4j SimpleLogger
-        if (!System.getProperties().contains(SimpleLogger.DATE_TIME_FORMAT_KEY))
-            System.setProperty(SimpleLogger.DATE_TIME_FORMAT_KEY, "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
-        if (!System.getProperties().contains(SimpleLogger.LOG_FILE_KEY))
-            System.setProperty(SimpleLogger.LOG_FILE_KEY, "System.out");
-
-
+        // configure Logback SimpleLogger
+        setSystemPropertyIfNotDefined(SimpleLogger.SHOW_DATE_TIME_KEY, "true");
+        setSystemPropertyIfNotDefined(SimpleLogger.DATE_TIME_FORMAT_KEY, "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+        setSystemPropertyIfNotDefined(SimpleLogger.LOG_FILE_KEY, "System.out");
+        setSystemPropertyIfNotDefined(SimpleLogger.SHOW_LOG_NAME_KEY, "false");
+        setSystemPropertyIfNotDefined(SimpleLogger.SHOW_THREAD_NAME_KEY, "false");
     }
 
     static class JmxInvokerArguments {
@@ -394,5 +458,26 @@ public class JmxInvoker {
         @Option(name = "-d", aliases = "--describe-mbeans", required = false, usage = "describe mbeans")
         public boolean describeMbeans;
 
+    }
+
+    public static class Result {
+        ObjectName objectName;
+        Object value;
+        String description;
+
+        public Result(ObjectName objectName, Object value, String description) {
+            this.objectName = objectName;
+            this.value = value;
+            this.description = description;
+        }
+
+        @Override
+        public String toString() {
+            return "Result{" +
+                    "objectName=" + objectName +
+                    ", value=" + value +
+                    ", description='" + description + '\'' +
+                    '}';
+        }
     }
 }
